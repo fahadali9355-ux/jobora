@@ -1,39 +1,8 @@
 import os
-import pymysql
-import urllib.parse
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-def create_database():
-    """Connect to MySQL and create database if not exists."""
-    db_url = os.getenv('DATABASE_URL')
-    if not db_url:
-        print("DATABASE_URL not found in .env")
-        return False
-        
-    parsed = urllib.parse.urlparse(db_url)
-    
-    db_name = parsed.path.lstrip('/')
-    user = parsed.username or 'root'
-    password = parsed.password or ''
-    host = parsed.hostname or 'localhost'
-    port = parsed.port or 3306
-
-    print(f"Connecting to MySQL server at {host}:{port}...")
-    try:
-        connection = pymysql.connect(host=host, user=user, password=password, port=port)
-        cursor = connection.cursor()
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_name};")
-        connection.commit()
-        cursor.close()
-        connection.close()
-        print(f"Database '{db_name}' ensured to exist.")
-        return True
-    except Exception as e:
-        print(f"Failed to create database: {e}")
-        return False
 
 def seed_data():
     from app import create_app, db
@@ -46,15 +15,6 @@ def seed_data():
         db.create_all()
         print("Tables created using SQLAlchemy's db.create_all().")
 
-        # Migrate: add 'status' column to users if it doesn't already exist
-        try:
-            db.session.execute(db.text("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'"))
-            db.session.commit()
-            print("Migrated: added 'status' column to users table.")
-        except Exception:
-            db.session.rollback()
-            print("'status' column already exists — skipping migration.")
-        
         # Admin user
         admin = User.query.filter_by(email='admin@jobora.com').first()
         if not admin:
@@ -118,13 +78,8 @@ def seed_data():
                 db.session.add_all([job1, job2, job3])
                 print("Inserted 3 sample jobs.")
                 
-        # Fix any existing users with null or incorrect status
-        db.session.execute(db.text("UPDATE users SET status='active' WHERE status IS NULL OR status='suspended'"))
-        print("Fixed existing users — all set to 'active' status.")
-
         db.session.commit()
         print("Database setup and seeding completed successfully!")
 
 if __name__ == '__main__':
-    if create_database():
-        seed_data()
+    seed_data()
