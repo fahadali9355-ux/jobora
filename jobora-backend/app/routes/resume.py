@@ -1,9 +1,11 @@
 import os
+import json
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app import db
 from app.models.resume import Resume
+from app.ai.resume_ranker import extract_text_from_file, parse_resume, extract_keywords_tfidf, calculate_match_score
 
 resume_bp = Blueprint('resume', __name__)
 
@@ -50,20 +52,43 @@ def upload_resume():
         file_path = os.path.join(upload_folder, filename)
         file.save(file_path)
 
+        # AI Parsing
+        try:
+            raw_text = extract_text_from_file(file_path)
+            parsed = parse_resume(raw_text)
+            keywords = extract_keywords_tfidf(raw_text, top_n=20)
+            parsed['keywords'] = keywords
+            
+            # Calculate resume score (based on completeness)
+            score = 0
+            if parsed.get('name'): score += 20
+            if parsed.get('email'): score += 15
+            if parsed.get('phone'): score += 10
+            if parsed.get('skills') and len(parsed['skills']) > 0: score += 25
+            if parsed.get('experience') and len(parsed['experience']) > 0: score += 20
+            if parsed.get('education') and len(parsed['education']) > 0: score += 10
+            parsed['resume_score'] = score
+            
+        except Exception as parse_error:
+            parsed = {'error': str(parse_error), 'resume_score': 0}
+
         # Update or create resume record
         existing = Resume.query.filter_by(user_id=int(user_id)).first()
 
         if existing:
             # Delete old file if exists
             if existing.file_path and os.path.exists(existing.file_path):
-                os.remove(existing.file_path)
+                try:
+                    os.remove(existing.file_path)
+                except Exception:
+                    pass
             existing.file_path = file_path
-            existing.parsed_data = None  # Reset parsed data — will be re-parsed
+            existing.parsed_data = json.dumps(parsed)
         else:
             resume = Resume(
                 user_id=int(user_id),
                 file_path=file_path,
-                parsed_data=None
+                parsed_data=json.dumps(parsed)
             )
             db.session.add(resume)
 

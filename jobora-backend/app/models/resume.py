@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from app import db
 
 
@@ -18,6 +19,6 @@ class Resume(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'file_path': self.file_path,
-            'parsed_data': self.parsed_data,
-            'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None,
+            'parsed_data': json.loads(self.parsed_data) if self.parsed_data else None,
+            'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None
         }

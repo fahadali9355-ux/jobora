@@ -8,6 +8,13 @@ using NLP (spaCy), TF-IDF (scikit-learn), and sentence embeddings (BERT).
 import re
 import os
 import numpy as np
+import pytesseract
+import fitz  # PyMuPDF
+from PIL import Image
+import io
+
+# Set Tesseract path for Windows
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 # ──────────────────────────────────────────────────────────
@@ -15,43 +22,41 @@ import numpy as np
 # ──────────────────────────────────────────────────────────
 
 def extract_text_from_file(file_path: str) -> str:
-    """
-    Extract raw text content from a resume file.
-    
-    Supports:
-        - PDF files (via PyMuPDF / fitz)
-        - DOCX files (via python-docx)
-    
-    Args:
-        file_path: Absolute or relative path to the resume file.
-    
-    Returns:
-        Extracted text as a single string.
-    
-    Raises:
-        ValueError: If the file format is not supported.
-        FileNotFoundError: If the file does not exist.
-    """
+    """Extract text from PDF (digital or scanned) or DOCX file."""
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    ext = os.path.splitext(file_path)[1].lower()
-
-    if ext == '.pdf':
-        import fitz  # PyMuPDF
-        text_parts = []
-        with fitz.open(file_path) as doc:
+        return ''
+        
+    ext = file_path.rsplit('.', 1)[-1].lower()
+    
+    if ext == 'pdf':
+        try:
+            doc = fitz.open(file_path)
+            text = ''
             for page in doc:
-                text_parts.append(page.get_text())
-        return '\n'.join(text_parts)
-
-    elif ext in ('.docx', '.doc'):
-        from docx import Document
-        doc = Document(file_path)
-        return '\n'.join([para.text for para in doc.paragraphs])
-
-    else:
-        raise ValueError(f"Unsupported file format: {ext}. Use PDF or DOCX.")
+                # Try digital text first
+                page_text = page.get_text()
+                if page_text.strip():
+                    text += page_text
+                else:
+                    # Scanned page - use OCR
+                    pix = page.get_pixmap(dpi=300)
+                    img_data = pix.tobytes('png')
+                    img = Image.open(io.BytesIO(img_data))
+                    text += pytesseract.image_to_string(img)
+            doc.close()
+            return text.strip()
+        except Exception:
+            return ''
+    
+    elif ext in ['doc', 'docx']:
+        try:
+            import docx
+            doc = docx.Document(file_path)
+            return '\n'.join([para.text for para in doc.paragraphs]).strip()
+        except Exception:
+            return ''
+    
+    return ''
 
 
 # ──────────────────────────────────────────────────────────
@@ -176,37 +181,33 @@ def parse_resume(text: str) -> dict:
 def extract_keywords_tfidf(text: str, top_n: int = 20) -> list:
     """
     Extract the most important keywords from text using TF-IDF scoring.
-    
-    Uses scikit-learn's TfidfVectorizer to identify terms that are
-    statistically important in the document. Filters out common stop words.
-    
-    Args:
-        text: Input text string (resume or job description).
-        top_n: Number of top keywords to return (default: 20).
-    
-    Returns:
-        List of top N keywords sorted by TF-IDF score (highest first).
     """
-    from sklearn.feature_extraction.text import TfidfVectorizer
+    if not text or len(text.strip()) < 10:
+        return []
+        
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
 
-    # Use a single document — TF-IDF still gives term importance scores
-    vectorizer = TfidfVectorizer(
-        max_features=1000,
-        stop_words='english',
-        ngram_range=(1, 2),  # Include bigrams for phrases like "machine learning"
-        min_df=1,
-        max_df=1.0
-    )
+        # Use a single document — TF-IDF still gives term importance scores
+        vectorizer = TfidfVectorizer(
+            max_features=1000,
+            stop_words='english',
+            ngram_range=(1, 2),  # Include bigrams for phrases like "machine learning"
+            min_df=1,
+            max_df=1.0
+        )
 
-    tfidf_matrix = vectorizer.fit_transform([text])
-    feature_names = vectorizer.get_feature_names_out()
-    scores = tfidf_matrix.toarray().flatten()
+        tfidf_matrix = vectorizer.fit_transform([text])
+        feature_names = vectorizer.get_feature_names_out()
+        scores = tfidf_matrix.toarray().flatten()
 
-    # Sort by score descending
-    top_indices = np.argsort(scores)[::-1][:top_n]
-    keywords = [feature_names[i] for i in top_indices if scores[i] > 0]
+        # Sort by score descending
+        top_indices = np.argsort(scores)[::-1][:top_n]
+        keywords = [feature_names[i] for i in top_indices if scores[i] > 0]
 
-    return keywords
+        return keywords
+    except Exception:
+        return []
 
 
 # ──────────────────────────────────────────────────────────
