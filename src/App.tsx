@@ -9,8 +9,8 @@ import {
   Search, Shield, LayoutDashboard, Cpu, Network, Briefcase,
   LineChart, SlidersHorizontal, ArrowRight, Bell
 } from 'lucide-react';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
-import AuthModal from './components/AuthModal';
+import { motion, useScroll, useTransform } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,9 +29,8 @@ const itemVariants = {
 };
 
 export default function App() {
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
-  const openAuth = (mode: 'login' | 'signup') => { setAuthMode(mode); setIsAuthOpen(true); };
+  const navigate = useNavigate();
+  const openAuth = (mode: 'login' | 'signup') => { navigate(`/${mode}`); };
 
   const { scrollY, scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
@@ -643,9 +642,7 @@ export default function App() {
 
       </main>
 
-      <AnimatePresence>
-        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} defaultMode={authMode} />
-      </AnimatePresence>
+      {/* AuthModal replaced with page navigation */}
     </div>
   );
 }
