@@ -42,7 +42,8 @@ def register():
         user = User(
             name=data['name'],
             email=data['email'],
-            role=data['role']
+            role=data['role'],
+            status='active'
         )
         user.set_password(data['password'])
 
