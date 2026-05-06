@@ -210,3 +210,74 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ── PREMIUM TEXT & SECTION EFFECTS ─────────────────────────────── */
+
+/* Shimmer on hero brand name */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.text-shimmer {
+  background: linear-gradient(90deg, #1A1A1A 0%, #888 40%, #1A1A1A 60%, #1A1A1A 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Magnetic lift on section headings */
+.heading-hover {
+  display: inline-block;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.heading-hover:hover {
+  transform: translateY(-4px) skewX(-1deg);
+}
+
+/* Animated reveal underline for section h2s */
+.section-underline {
+  position: relative;
+}
+.section-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 2px;
+  width: 0;
+  background: currentColor;
+  transition: width 0.5s cubic-bezier(0.77, 0, 0.18, 1);
+}
+.section-underline:hover::after {
+  width: 100%;
+}
+
+/* Feature card border glow on hover */
+.card-glow {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.card-glow:hover {
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12), 0 24px 48px -16px rgba(0,0,0,0.15);
+  transform: translateY(-4px);
+}
+
+/* Pulsing dot for live status indicators */
+@keyframes ping-slow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.6); opacity: 0.4; }
+}
+.ping-slow {
+  animation: ping-slow 2s ease-in-out infinite;
+}
+
+/* Counter number scroll-in */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.count-in {
+  animation: count-up 0.6s ease forwards;
+}
