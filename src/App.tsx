@@ -30,7 +30,12 @@ const itemVariants = {
 
 export default function App() {
   const navigate = useNavigate();
-  const openAuth = (mode: 'login' | 'signup') => { navigate(`/${mode}`); };
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const openAuth = (mode: 'login' | 'signup') => { 
+    setIsMobileMenuOpen(false);
+    navigate(`/${mode}`); 
+  };
 
   const { scrollY, scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
@@ -86,7 +91,46 @@ export default function App() {
             </span>
           </button>
         </div>
+
+        {/* Mobile Toggle */}
+        <div className="md:hidden z-30">
+          <input type="checkbox" id="checkbox" className="menu-checkbox" checked={isMobileMenuOpen} onChange={(e) => setIsMobileMenuOpen(e.target.checked)} />
+          <label htmlFor="checkbox" className="toggle">
+            <div className="bar bar--top"></div>
+            <div className="bar bar--middle"></div>
+            <div className="bar bar--bottom"></div>
+          </label>
+        </div>
       </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Menu Sidebar */}
+      <aside className={`md:hidden flex flex-col w-72 bg-[#FBFBF9] border-r border-black/5 min-h-screen fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="px-8 py-6 border-b border-black/5 flex items-center justify-between">
+          <span className="font-serif italic text-xl text-shimmer">Jobora</span>
+          <button className="text-black/50 hover:text-black" onClick={() => setIsMobileMenuOpen(false)}>
+            ✕
+          </button>
+        </div>
+        <nav className="flex flex-col gap-6 px-8 py-8 text-sm font-bold uppercase tracking-widest flex-1">
+          <a href="#" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-black/60 transition-colors">Home</a>
+          <a href="#" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-black/60 transition-colors">About</a>
+          <a href="#" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-black/60 transition-colors">Features</a>
+        </nav>
+        <div className="p-8 mt-auto flex flex-col gap-4 border-t border-black/5">
+          <button onClick={() => openAuth('login')} className="w-full py-4 border border-black text-[11px] uppercase tracking-widest font-bold hover:bg-black/5 transition-colors">Log In</button>
+          <button onClick={() => openAuth('signup')} className="btn-31 !py-4 !w-full flex items-center justify-center">
+            <span className="text-container"><span className="text">Get Started</span></span>
+          </button>
+        </div>
+      </aside>
 
       {/* Application Main Wrapper */}
       <main className="flex-1 flex flex-col relative z-10 w-full">

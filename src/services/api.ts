@@ -61,12 +61,19 @@ export const resumeAPI = {
     });
   },
   get: (user_id: number) => api.get(`/api/resume/${user_id}`),
+  getTips: (user_id: number) => api.get(`/api/resume/tips/${user_id}`),
 };
 
 export const adminAPI = {
   getUsers: (role?: string) => api.get('/api/admin/users', { params: { role } }),
   getStats: () => api.get('/api/admin/stats'),
   updateUser: (id: number, data: any) => api.patch(`/api/admin/users/${id}`, data),
+};
+
+export const notificationsAPI = {
+  getAll: () => api.get('/api/notifications'),
+  markAllRead: () => api.patch('/api/notifications/read'),
+  markOneRead: (id: number) => api.patch(`/api/notifications/${id}/read`),
 };
 
 export default api;

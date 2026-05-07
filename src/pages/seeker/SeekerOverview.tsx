@@ -54,7 +54,16 @@ export default function SeekerOverview() {
         ]);
         
         setApplications(appsRes.data.data || []);
-        setResumeData(resumeRes.data.data || null);
+        
+        // Extract real resume score from parsed_data
+        const rawResume = resumeRes.data.data;
+        if (rawResume && rawResume.parsed_data) {
+          const parsed = typeof rawResume.parsed_data === 'string' ? JSON.parse(rawResume.parsed_data) : rawResume.parsed_data;
+          setResumeData({ ...rawResume, ...parsed });
+        } else {
+          setResumeData(rawResume);
+        }
+        
         setRecommendedJobs((jobsRes.data.data || []).slice(0, 3));
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch dashboard data');
@@ -147,7 +156,7 @@ export default function SeekerOverview() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <button onClick={() => navigate('/jobs')} className="btn-31 !py-2 !px-4 !text-[9px]">
+                        <button onClick={() => navigate('/dashboard/seeker/jobs')} className="btn-31 !py-2 !px-4 !text-[9px]">
                           <span className="text-container"><span className="text">Apply</span></span>
                         </button>
                       </div>
@@ -207,10 +216,10 @@ export default function SeekerOverview() {
                     <div className="relative w-32 h-32">
                       <svg className="w-32 h-32 -rotate-90" viewBox="0 0 128 128">
                         <circle cx="64" cy="64" r="56" fill="none" stroke="#F5F5F2" strokeWidth="8" />
-                        <circle cx="64" cy="64" r="56" fill="none" stroke="#1A1A1A" strokeWidth="8" strokeDasharray={`${(resumeData ? 85 : 0 / 100) * 352} 352`} strokeLinecap="square" />
+                        <circle cx="64" cy="64" r="56" fill="none" stroke="#1A1A1A" strokeWidth="8" strokeDasharray={`${((resumeData?.resume_score || 0) / 100) * 352} 352`} strokeLinecap="square" />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-3xl font-bold">{resumeData ? '85' : '0'}</span>
+                        <span className="text-3xl font-bold">{resumeData?.resume_score || 0}</span>
                         <span className="text-[9px] uppercase tracking-widest text-black/40 font-bold">out of 100</span>
                       </div>
                     </div>
@@ -232,7 +241,7 @@ export default function SeekerOverview() {
               <section className="bg-[#1A1A1A] text-white p-6">
                 <h3 className="text-[11px] uppercase tracking-widest font-bold text-white/50 mb-4">Quick Actions</h3>
                 <div className="space-y-2">
-                  <button onClick={() => navigate('/jobs')} className="w-full flex items-center justify-between py-3 px-4 text-[10px] uppercase tracking-widest font-bold bg-white/5 hover:bg-white/10 transition-colors">
+                  <button onClick={() => navigate('/dashboard/seeker/jobs')} className="w-full flex items-center justify-between py-3 px-4 text-[10px] uppercase tracking-widest font-bold bg-white/5 hover:bg-white/10 transition-colors">
                     <span>Search Jobs</span><Search className="w-3 h-3" />
                   </button>
                   <button className="w-full flex items-center justify-between py-3 px-4 text-[10px] uppercase tracking-widest font-bold bg-white/5 hover:bg-white/10 transition-colors">

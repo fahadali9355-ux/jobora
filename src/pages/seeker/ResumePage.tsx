@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { resumeAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { UploadCloud, FileText, CheckCircle } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Sparkles, Loader2 } from 'lucide-react';
 
 export default function ResumePage() {
   const { user } = useAuth();
@@ -9,14 +9,24 @@ export default function ResumePage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [score, setScore] = useState(0);
+  const [tips, setTips] = useState<string[]>([]);
+  const [loadingTips, setLoadingTips] = useState(false);
 
   const fetchResume = async () => {
     if (!user) return;
     try {
       setLoading(true);
       const res = await resumeAPI.get(user.id);
-      setResumeData(res.data.data);
-      setScore(res.data.data ? 85 : 0); // Mocking score for now
+      const raw = res.data.data;
+      if (raw && raw.parsed_data) {
+        // Merge parsed_data fields to the top level for easy access
+        const parsed = typeof raw.parsed_data === 'string' ? JSON.parse(raw.parsed_data) : raw.parsed_data;
+        setResumeData({ ...raw, ...parsed });
+        setScore(parsed.resume_score || 0);
+      } else {
+        setResumeData(raw);
+        setScore(0);
+      }
     } catch (err) {
       console.error(err);
       setResumeData(null);
@@ -43,11 +53,24 @@ export default function ResumePage() {
     }
   };
 
-  const resumeTips = [
-    'Add a professional summary section',
-    'Include quantifiable achievements in experience',
-    'List relevant certifications for ATS optimization',
-  ];
+  const fetchTips = async () => {
+    if (!user) return;
+    try {
+      setLoadingTips(true);
+      const res = await resumeAPI.getTips(user.id);
+      setTips(res.data.data || []);
+    } catch {
+      setTips(['Add a professional summary section', 'Include quantifiable achievements', 'List relevant certifications']);
+    } finally {
+      setLoadingTips(false);
+    }
+  };
+
+  useEffect(() => {
+    if (resumeData && !loadingTips && tips.length === 0) {
+      fetchTips();
+    }
+  }, [resumeData]);
 
   return (
     <div className="px-8 lg:px-12 py-8 max-w-5xl mx-auto">
@@ -86,9 +109,16 @@ export default function ResumePage() {
 
           {/* Tips */}
           <section className="bg-white border border-black/5 p-6">
-            <span className="text-[9px] uppercase tracking-widest font-bold text-black/40 block mb-4">Improvement Tips</span>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[9px] uppercase tracking-widest font-bold text-black/40 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> AI Improvement Tips</span>
+              <button onClick={fetchTips} disabled={loadingTips} className="text-[9px] uppercase tracking-widest font-bold text-black/30 hover:text-black transition-colors disabled:opacity-30">
+                {loadingTips ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
+              </button>
+            </div>
             <ul className="space-y-3">
-              {resumeTips.map((tip, i) => (
+              {loadingTips ? (
+                Array(4).fill(0).map((_, i) => <li key={i} className="h-4 bg-black/5 animate-pulse w-full"></li>)
+              ) : tips.map((tip, i) => (
                 <li key={i} className="flex items-start gap-3 text-[11px] text-black/60 leading-relaxed font-medium">
                   <span className="w-4 h-4 shrink-0 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center text-[8px] font-bold mt-0.5">{i + 1}</span>
                   {tip}
