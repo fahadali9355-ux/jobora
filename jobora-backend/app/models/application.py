@@ -11,10 +11,11 @@ class Application(db.Model):
     job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=False)
     seeker_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     status = db.Column(
-        db.Enum('pending', 'shortlisted', 'rejected'),
+        db.Enum('pending', 'shortlisted', 'rejected', name='application_status'),
         default='pending',
         nullable=False
     )
+
     match_score = db.Column(db.Float, nullable=True)
     applied_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
