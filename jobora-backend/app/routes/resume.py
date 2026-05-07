@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app import db
 from app.models.resume import Resume
-from app.ai.resume_ranker import extract_text_from_file, parse_resume, extract_keywords_tfidf, calculate_match_score
+from app.ai.resume_ranker import extract_text_from_pdf, parse_resume_with_spacy
 
 resume_bp = Blueprint('resume', __name__)
 
@@ -54,10 +54,8 @@ def upload_resume():
 
         # AI Parsing
         try:
-            raw_text = extract_text_from_file(file_path)
-            parsed = parse_resume(raw_text)
-            keywords = extract_keywords_tfidf(raw_text, top_n=20)
-            parsed['keywords'] = keywords
+            raw_text = extract_text_from_pdf(file_path)
+            parsed = parse_resume_with_spacy(raw_text)
             
             # Calculate resume score (based on completeness)
             score = 0
@@ -83,12 +81,12 @@ def upload_resume():
                 except Exception:
                     pass
             existing.file_path = file_path
-            existing.parsed_data = json.dumps(parsed)
+            existing.parsed_data = parsed
         else:
             resume = Resume(
                 user_id=int(user_id),
                 file_path=file_path,
-                parsed_data=json.dumps(parsed)
+                parsed_data=parsed
             )
             db.session.add(resume)
 
@@ -136,3 +134,64 @@ def get_resume(target_user_id):
             'data': None,
             'message': str(e)
         }), 500
+
+
+@resume_bp.route('/tips/<int:target_user_id>', methods=['GET'])
+@jwt_required()
+def get_resume_tips(target_user_id):
+    """Get AI-powered resume improvement tips."""
+    try:
+        resume = Resume.query.filter_by(user_id=target_user_id).first()
+
+        if not resume or not resume.parsed_data:
+            return jsonify({
+                'success': True,
+                'data': [
+                    'Upload your resume to get personalized AI tips',
+                    'Use PDF format for best parsing results',
+                    'Include a professional summary section'
+                ],
+                'message': 'Default tips (no resume found)'
+            }), 200
+
+        raw = resume.parsed_data
+        # Unwrap any double-encoding from legacy saves
+        while isinstance(raw, str):
+            raw = json.loads(raw)
+        parsed = raw
+        resume_text = parsed.get('raw_text', '')[:3000]
+
+        from app.ai.bedrock_client import invoke_claude
+        prompt = f"""You are a professional career advisor. Analyze this resume and provide exactly 4 specific, actionable improvement tips.
+Return ONLY a JSON array of 4 strings, no markdown, no extra text. Each tip should be 1 sentence.
+
+Example format: ["Tip 1", "Tip 2", "Tip 3", "Tip 4"]
+
+Resume:
+{resume_text}"""
+
+        try:
+            response = invoke_claude(prompt, max_tokens=300).strip()
+            if response.startswith("```"): response = response.split("```")[1]
+            if response.startswith("json"): response = response[4:]
+            if response.endswith("```"): response = response.rsplit("```", 1)[0]
+            tips = json.loads(response.strip())
+            if isinstance(tips, list) and len(tips) > 0:
+                return jsonify({'success': True, 'data': tips[:4], 'message': 'AI tips generated'}), 200
+        except Exception as e:
+            print(f"AI tips error: {e}")
+
+        # Fallback tips
+        return jsonify({
+            'success': True,
+            'data': [
+                'Add a professional summary section',
+                'Include quantifiable achievements in experience',
+                'List relevant certifications for ATS optimization',
+                'Add more technical skills keywords'
+            ],
+            'message': 'Fallback tips'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'data': None, 'message': str(e)}), 500

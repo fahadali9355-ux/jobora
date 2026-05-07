@@ -34,23 +34,22 @@ export default function RecruiterOverview() {
       if (!user) return;
       try {
         setLoading(true);
-        // In a real app we'd pass recruiter_id, but the backend jobs endpoint doesn't support that filter directly yet
-        // However, all jobs returned are fetched. Let's filter client-side just in case
         const jobsRes = await jobsAPI.getAll();
         const allJobs = jobsRes.data.data || [];
         const myJobs = allJobs.filter((j: any) => j.recruiter_id === user.id);
         setJobs(myJobs);
 
-        const appsPromises = myJobs.map((job: any) => applicationsAPI.getJobApplications(job.id));
-        const appsResponses = await Promise.all(appsPromises);
-        
+        // Fetch apps per-job individually to avoid one 403 killing everything
         const allApps: any[] = [];
-        appsResponses.forEach((res, idx) => {
-          const jobApps = res.data.data || [];
-          // Add job info to apps for context
-          const enhancedApps = jobApps.map((a: any) => ({ ...a, job: myJobs[idx] }));
-          allApps.push(...enhancedApps);
-        });
+        for (const job of myJobs) {
+          try {
+            const res = await applicationsAPI.getJobApplications(job.id);
+            const jobApps = (res.data.data || []).map((a: any) => ({ ...a, job }));
+            allApps.push(...jobApps);
+          } catch (err) {
+            console.warn(`Failed to fetch apps for job ${job.id}:`, err);
+          }
+        }
         
         setApplications(allApps);
       } catch (err: any) {

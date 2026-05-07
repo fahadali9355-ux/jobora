@@ -12,7 +12,7 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.Enum('seeker', 'recruiter', 'admin', name='user_role'), nullable=False, default='seeker')
+    role = db.Column(db.Enum('seeker', 'recruiter', 'admin', name='user_role_enum'), nullable=False, default='seeker')
     status = db.Column(db.String(20), nullable=False, default='active')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 

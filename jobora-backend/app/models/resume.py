@@ -15,10 +15,18 @@ class Resume(db.Model):
     uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
+        parsed = self.parsed_data
+        # Unwrap any double-encoding from legacy saves
+        if parsed:
+            while isinstance(parsed, str):
+                try:
+                    parsed = json.loads(parsed)
+                except (json.JSONDecodeError, TypeError):
+                    break
         return {
             'id': self.id,
             'user_id': self.user_id,
             'file_path': self.file_path,
-            'parsed_data': json.loads(self.parsed_data) if self.parsed_data else None,
+            'parsed_data': parsed,
             'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None
         }

@@ -46,14 +46,52 @@ def apply_for_job():
                 'message': 'You have already applied for this job'
             }), 409
 
+        # Calculate match score using AI
+        job_desc = job.description or ""
+        if job.skills_required:
+            job_desc += " " + job.skills_required
+            
+        from app.models.resume import Resume
+        import json
+        resume = Resume.query.filter_by(user_id=int(user_id)).first()
+        
+        match_score = 0.0
+        if resume and resume.parsed_data:
+            try:
+                resume_data = json.loads(resume.parsed_data)
+                resume_text = resume_data.get("raw_text", "")
+                from app.ai.resume_ranker import calculate_match_score
+                match_score = calculate_match_score(resume_text, job_desc)
+            except Exception as e:
+                print("Error calculating match score:", e)
+
         application = Application(
             job_id=job_id,
             seeker_id=int(user_id),
             status='pending',
-            match_score=data.get('match_score')
+            match_score=match_score
         )
 
         db.session.add(application)
+
+        # Create notification for the seeker: "You applied"
+        from app.routes.notifications import create_notification
+        create_notification(
+            user_id=int(user_id),
+            title='Application Submitted',
+            message=f'You have successfully applied for "{job.title}" at {job.company}. Good luck!',
+            notif_type='success',
+            link='/dashboard/seeker/applications'
+        )
+        # Notify the recruiter that someone applied
+        create_notification(
+            user_id=job.recruiter_id,
+            title='New Applicant',
+            message=f'A new candidate has applied for your job posting "{job.title}".',
+            notif_type='info',
+            link='/dashboard/recruiter/candidates'
+        )
+
         db.session.commit()
 
         return jsonify({
@@ -122,7 +160,26 @@ def get_job_applications(job_id):
         result = []
         for app in apps:
             app_data = app.to_dict()
-            app_data['seeker'] = app.seeker.to_dict() if app.seeker else None
+            seeker_data = app.seeker.to_dict() if app.seeker else None
+            
+            # Include resume parsed data so recruiter can view full resume details
+            resume_data = None
+            if app.seeker and app.seeker.resume and app.seeker.resume.parsed_data:
+                import json
+                try:
+                    raw = app.seeker.resume.parsed_data
+                    # Unwrap any double-encoding from legacy saves
+                    while isinstance(raw, str):
+                        raw = json.loads(raw)
+                    resume_data = raw
+                    # Remove raw_text to keep response size manageable
+                    if isinstance(resume_data, dict):
+                        resume_data.pop('raw_text', None)
+                except Exception:
+                    resume_data = None
+            
+            app_data['seeker'] = seeker_data
+            app_data['resume'] = resume_data
             result.append(app_data)
 
         return jsonify({
@@ -164,6 +221,29 @@ def update_application_status(app_id):
             return jsonify({'success': False, 'data': None, 'message': 'Unauthorized'}), 403
 
         application.status = new_status
+
+        # Notify the seeker about the status change
+        from app.routes.notifications import create_notification
+        job_title = application.job.title if application.job else 'a job'
+        company = application.job.company if application.job else ''
+
+        if new_status == 'shortlisted':
+            create_notification(
+                user_id=application.seeker_id,
+                title='🎉 Congratulations! You\'ve Been Shortlisted',
+                message=f'Great news! Your application for "{job_title}" at {company} has been shortlisted. The recruiter is interested in your profile. Prepare for the next steps!',
+                notif_type='success',
+                link='/dashboard/seeker/applications'
+            )
+        elif new_status == 'rejected':
+            create_notification(
+                user_id=application.seeker_id,
+                title='Application Update',
+                message=f'Unfortunately, your application for "{job_title}" at {company} was not selected to move forward. Don\'t be discouraged — keep applying to other opportunities!',
+                notif_type='warning',
+                link='/dashboard/seeker/applications'
+            )
+
         db.session.commit()
 
         return jsonify({

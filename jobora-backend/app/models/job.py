@@ -15,10 +15,10 @@ class Job(db.Model):
     salary_min = db.Column(db.Integer, nullable=True)
     salary_max = db.Column(db.Integer, nullable=True)
     location = db.Column(db.String(200), nullable=True)
-    job_type = db.Column(db.Enum('full-time', 'part-time', 'remote', 'contract', name='job_type'), default='full-time')
+    job_type = db.Column(db.Enum('full-time', 'part-time', 'remote', 'contract', name='job_type_enum'), default='full-time')
     experience_min = db.Column(db.Integer, default=0)
     recruiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.Enum('active', 'paused', 'closed', name='job_status'), default='active')
+    status = db.Column(db.Enum('active', 'paused', 'closed', name='job_status_enum'), default='active')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships

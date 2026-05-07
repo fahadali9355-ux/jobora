@@ -201,3 +201,30 @@ def delete_job(job_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'data': None, 'message': str(e)}), 500
+
+
+@jobs_bp.route('/<int:job_id>/rank-candidates', methods=['POST'])
+@recruiter_required
+def api_rank_candidates(job_id):
+    """Rank candidates for a job. Requires recruiter role."""
+    try:
+        user_id = get_jwt_identity()
+        job = Job.query.get(job_id)
+
+        if not job:
+            return jsonify({'success': False, 'data': None, 'message': 'Job not found'}), 404
+
+        if job.recruiter_id != int(user_id):
+            return jsonify({'success': False, 'data': None, 'message': 'Unauthorized'}), 403
+
+        from app.ai.resume_ranker import rank_candidates
+        ranked_list = rank_candidates(job_id, db.session)
+
+        return jsonify({
+            'success': True,
+            'data': ranked_list,
+            'message': 'Candidates ranked successfully'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'data': None, 'message': str(e)}), 500
